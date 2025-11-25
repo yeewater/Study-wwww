@@ -1,6 +1,9 @@
 name = "study-with-miku"
 compatibility_date = "2023-10-01"
 
+[site]
+bucket = "./dist"
+entry-point = "."
 [env.production]
 
 [[routes]]
