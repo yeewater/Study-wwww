@@ -146,7 +146,12 @@ watch(showControls, (newValue) => {
   }
 })
 
+const reportVisit = () => {
+  fetch('/api/visit', { method: 'POST' }).catch(() => {})
+}
+
 onMounted(() => {
+  reportVisit()
   const preloadAllVideos = async () => {
     try {
       await preloadVideos(videos)
