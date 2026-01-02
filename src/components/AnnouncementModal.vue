@@ -2,21 +2,17 @@
   <transition name="modal-fade">
     <div v-if="showModal" class="announcement-overlay" @click.self="closeModal">
       <div class="announcement-modal">
-        <div class="modal-header">
-          <h3>公告</h3>
-          <button class="close-btn" @click="closeModal">×</button>
-        </div>
         <div class="modal-content">
           <div class="content-area">
             <div class="announcement-detail">
-              <h2>{{ announcements[0].title }}</h2>
-              <div class="announcement-date">{{ announcements[0].date }}</div>
-              <div v-html="announcements[0].content" class="announcement-content"></div>
+              <h2>{{ latestUpdate.title || '最新更新' }}</h2>
+              <div class="announcement-date">{{ latestUpdate.date }}</div>
+              <div v-html="announcementContent" class="announcement-content"></div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="confirm-btn" @click="closeModal">我知道了</button>
+          <button class="confirm-btn" @click="closeModal">开始学习！</button>
         </div>
       </div>
     </div>
@@ -24,26 +20,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { updates } from '../data/updates.js'
 
 const STORAGE_KEY = 'announcement_last_shown'
 const INTERVAL_DAYS = 3
 
 const showModal = ref(false)
 
-const announcements = [
-  {
-    title: '最新更新',
-    date: '2025-12-27',
-    content: `
-      <p>学习辛苦了！也请注意一下休息哦~</p>
-      <p>1.对默认歌单添加了翻译，找歌更方便~</p>
-      <p>2.修复手机端的ui显示不全问题</p>
-      <p>3.修复手机端的"全屏""切换"按钮显示问题</p>
-      <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.7;">更多更新日志请查看番茄钟设置中的"更新日志"标签页</p>
-    `
-  }
-]
+const latestUpdate = computed(() => updates[0])
+
+const announcementContent = computed(() => {
+  const contentHtml = latestUpdate.value.content.map(item => `<p>${item}</p>`).join('')
+  return `
+    ${contentHtml}
+    <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.7;">更多更新日志请查看番茄钟设置中的"更新日志"标签页</p>
+  `
+})
 
 const shouldShowAnnouncement = () => {
   const lastShown = localStorage.getItem(STORAGE_KEY)
