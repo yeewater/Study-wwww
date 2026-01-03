@@ -166,7 +166,7 @@ import { duckMusicForNotification, setHoveringUI, getAPlayerInstance } from '../
 import { getPomodoroSettings, savePomodoroSettings } from '../utils/userSettings.js'
 import Updates from './Updates.vue'
 
-const { onlineCount, isConnected } = useOnlineCount(import.meta.env.VITE_SSE_URL)
+const { onlineCount, isConnected } = useOnlineCount(import.meta.env.VITE_WS_URL)
 const { playlistId, platform, applyCustomPlaylist, resetToLocal, songs, DEFAULT_PLAYLIST_ID, PLATFORMS } = useMusic()
 
 const inputPlaylistId = ref('')

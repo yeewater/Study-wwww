@@ -1,20 +1,23 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
-export function useOnlineCount(sseUrl) {
+export function useOnlineCount(wsUrl) {
   const onlineCount = ref(0)
   const isConnected = ref(false)
-  let eventSource = null
+  let ws = null
+  let reconnectTimer = null
+  let pingTimer = null
 
   const connect = () => {
     try {
-      eventSource = new EventSource(sseUrl)
+      ws = new WebSocket(wsUrl)
 
-      eventSource.onopen = () => {
+      ws.onopen = () => {
         isConnected.value = true
-        console.log('SSE connected')
+        console.log('WebSocket connected')
+        startPing()
       }
 
-      eventSource.onmessage = (event) => {
+      ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
           if (data.type === 'count') {
@@ -25,23 +28,55 @@ export function useOnlineCount(sseUrl) {
         }
       }
 
-      eventSource.onerror = (error) => {
-        console.error('SSE error:', error)
+      ws.onclose = () => {
         isConnected.value = false
-        eventSource.close()
-        eventSource = null
+        console.log('WebSocket disconnected')
+        stopPing()
+        scheduleReconnect()
+      }
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
       }
     } catch (err) {
-      console.error('SSE connection error:', err)
+      console.error('WebSocket connection error:', err)
+      scheduleReconnect()
     }
   }
 
-  const disconnect = () => {
-    if (eventSource) {
-      eventSource.close()
-      eventSource = null
+  const startPing = () => {
+    pingTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }))
+      }
+    }, 30000)
+  }
+
+  const stopPing = () => {
+    if (pingTimer) {
+      clearInterval(pingTimer)
+      pingTimer = null
     }
-    isConnected.value = false
+  }
+
+  const scheduleReconnect = () => {
+    if (reconnectTimer) return
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, 3000)
+  }
+
+  const disconnect = () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+    stopPing()
+    if (ws) {
+      ws.close()
+      ws = null
+    }
   }
 
   onMounted(() => {

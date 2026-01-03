@@ -2,65 +2,50 @@ export class OnlineCounter {
   constructor(state, env) {
     this.state = state
     this.env = env
-    this.clients = new Map()
   }
 
   async fetch(request) {
-    const url = new URL(request.url)
-    const clientId = crypto.randomUUID()
+    const pair = new WebSocketPair()
+    const [client, server] = Object.values(pair)
 
-    const stream = new ReadableStream({
-      start: (controller) => {
-        this.clients.set(clientId, controller)
-        this.broadcast()
+    this.state.acceptWebSocket(server)
+    this.broadcast()
 
-        const encoder = new TextEncoder()
-
-        const sendEvent = (data) => {
-          try {
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-          } catch (err) {
-            this.clients.delete(clientId)
-          }
-        }
-
-        const heartbeatInterval = setInterval(() => {
-          try {
-            controller.enqueue(encoder.encode(': heartbeat\n\n'))
-          } catch (err) {
-            clearInterval(heartbeatInterval)
-            this.clients.delete(clientId)
-          }
-        }, 30000)
-
-        request.signal.addEventListener('abort', () => {
-          clearInterval(heartbeatInterval)
-          this.clients.delete(clientId)
-          this.broadcast()
-        })
-      },
-    })
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-      },
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
     })
   }
 
-  broadcast() {
-    const count = this.clients.size
-    const message = JSON.stringify({ type: 'count', count })
+  async webSocketMessage(ws, message) {
+    try {
+      const data = JSON.parse(message)
+      if (data.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong' }))
+      }
+    } catch (err) {
+      console.error('Parse error:', err)
+    }
+  }
 
-    for (const [clientId, controller] of this.clients) {
+  async webSocketClose(ws, code, reason, wasClean) {
+    ws.close(1000, 'Goodbye')
+    this.broadcast()
+  }
+
+  async webSocketError(ws, error) {
+    this.broadcast()
+  }
+
+  broadcast() {
+    const sessions = this.state.getWebSockets()
+    const count = sessions.length
+    const message = JSON.stringify({ type: 'count', count })
+    
+    for (const session of sessions) {
       try {
-        const encoder = new TextEncoder()
-        controller.enqueue(encoder.encode(`data: ${message}\n\n`))
+        session.send(message)
       } catch (err) {
-        this.clients.delete(clientId)
       }
     }
   }
@@ -101,11 +86,16 @@ export default {
       })
     }
 
-    if (url.pathname === '/sse') {
+    if (url.pathname === '/ws') {
       if (!isOriginAllowed(origin)) {
         return new Response('Forbidden', { status: 403 })
       }
 
+      const upgradeHeader = request.headers.get('Upgrade')
+      if (!upgradeHeader || upgradeHeader.toLowerCase() !== 'websocket') {
+        return new Response('Expected WebSocket', { status: 426 })
+      }
+      
       const id = env.ONLINE_COUNTER.idFromName('global')
       const stub = env.ONLINE_COUNTER.get(id)
       return stub.fetch(request)
