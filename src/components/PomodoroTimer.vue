@@ -382,7 +382,8 @@ const runtimeSeconds = computed(() => Math.floor((currentTime.value - startDate)
 let timeInterval = null
 let timer = null
 let studyTimeCounter = 0
-let lastTickTime = Date.now()
+let phaseEndTime = null
+let lastRecordedTimeLeft = 0
 
 watch(focusDuration, (newVal) => { if (currentStatus.value === STATUS.FOCUS && !isRunning.value) timeLeft.value = newVal * 60; savePomodoroSettings(newVal, breakDuration.value, pauseMusicOnFocusEnd.value, pauseMusicOnBreakEnd.value, hidePomodoroOnIdle.value) })
 watch(breakDuration, (newVal) => { if (currentStatus.value !== STATUS.FOCUS && !isRunning.value) timeLeft.value = newVal * 60; savePomodoroSettings(focusDuration.value, newVal, pauseMusicOnFocusEnd.value, pauseMusicOnBreakEnd.value, hidePomodoroOnIdle.value) })
@@ -404,42 +405,52 @@ const strokeDashoffset = computed(() => { const totalTime = currentStatus.value 
 const toggleSettings = () => { showSettings.value = !showSettings.value }
 const closeSettings = () => { showSettings.value = false }
 
-const timerTick = () => {
+const scheduleNextTick = () => {
+  if (timer) { clearTimeout(timer); timer = null }
+  if (!isRunning.value || !phaseEndTime) return
+  const msRemaining = phaseEndTime - Date.now()
+  const delay = msRemaining <= 0 ? 0 : (msRemaining % 1000 || 1000)
+  timer = setTimeout(timerUpdate, delay)
+}
+const timerUpdate = () => {
+  if (!isRunning.value || !phaseEndTime) return
   const now = Date.now()
-  const elapsed = Math.floor((now - lastTickTime) / 1000)
-  if (elapsed < 1) return
-  lastTickTime = now
-  if (elapsed > 1) {
-    timeLeft.value = Math.max(0, timeLeft.value - elapsed + 1)
-    if (currentStatus.value === STATUS.FOCUS) {
-      studyTimeCounter += elapsed - 1
-      if (studyTimeCounter >= 60) { addStudyTime(Math.floor(studyTimeCounter / 60) * 60); studyTimeCounter = studyTimeCounter % 60 }
+  const remaining = Math.max(0, Math.ceil((phaseEndTime - now) / 1000))
+  const elapsed = lastRecordedTimeLeft - remaining
+  if (currentStatus.value === STATUS.FOCUS && elapsed > 0) {
+    studyTimeCounter += elapsed
+    if (studyTimeCounter >= 60) {
+      addStudyTime(Math.floor(studyTimeCounter / 60) * 60)
+      studyTimeCounter = studyTimeCounter % 60
     }
   }
-  timeLeft.value--
-  if (currentStatus.value === STATUS.FOCUS) {
-    studyTimeCounter++
-    if (studyTimeCounter >= 60) { addStudyTime(60); studyTimeCounter = 0 }
-  }
-  if (timeLeft.value <= 0) {
-    if (currentStatus.value === STATUS.FOCUS && studyTimeCounter > 0) addStudyTime(studyTimeCounter)
-    clearInterval(timer)
+  timeLeft.value = remaining
+  lastRecordedTimeLeft = remaining
+  if (remaining <= 0) {
+    if (currentStatus.value === STATUS.FOCUS && studyTimeCounter > 0) { addStudyTime(studyTimeCounter); studyTimeCounter = 0 }
     timer = null
+    phaseEndTime = null
     handleTimerComplete()
+  } else {
+    scheduleNextTick()
   }
 }
 const startTimer = () => {
   if (timeLeft.value <= 0) return
   isRunning.value = true
   studyTimeCounter = 0
-  lastTickTime = Date.now()
-  if (timer) clearInterval(timer)
-  timer = setInterval(timerTick, 1000)
+  lastRecordedTimeLeft = timeLeft.value
+  phaseEndTime = Date.now() + timeLeft.value * 1000
+  scheduleNextTick()
 }
 const pauseTimer = () => {
   isRunning.value = false
   if (currentStatus.value === STATUS.FOCUS && studyTimeCounter > 0) { addStudyTime(studyTimeCounter); studyTimeCounter = 0 }
-  if (timer) { clearInterval(timer); timer = null }
+  if (phaseEndTime) {
+    timeLeft.value = Math.max(0, Math.ceil((phaseEndTime - Date.now()) / 1000))
+    phaseEndTime = null
+  }
+  if (timer) { clearTimeout(timer); timer = null }
 }
 const resetTimer = () => { pauseTimer(); timeLeft.value = focusDuration.value * 60; currentStatus.value = STATUS.FOCUS }
 const handleTimerComplete = () => {
@@ -463,10 +474,11 @@ const handleTimerComplete = () => {
     }
   }
   const statusTextMap = { [STATUS.FOCUS]: '专注', [STATUS.BREAK]: '休息', [STATUS.LONG_BREAK]: '长休' }
-  if (Notification.permission === 'granted') new Notification('番茄钟', { body: `${statusTextMap[completedStatus]}已完成！`, icon: '/favicon.ico' })
+  try { if (Notification.permission === 'granted') new Notification('番茄钟', { body: `${statusTextMap[completedStatus]}已完成！`, icon: '/favicon.ico' }) } catch(e) {}
   studyTimeCounter = 0
-  lastTickTime = Date.now()
-  timer = setInterval(timerTick, 1000)
+  lastRecordedTimeLeft = timeLeft.value
+  phaseEndTime = Date.now() + timeLeft.value * 1000
+  scheduleNextTick()
 }
 const playNotificationSound = () => {
   duckMusicForNotification(3000)
@@ -477,7 +489,6 @@ const playNotificationSound = () => {
     } catch (e) {}
   }, 200)
 }
-const showNotification = () => { if (Notification.permission === 'granted') new Notification('番茄钟', { body: `${statusText.value}已完成！`, icon: '/favicon.ico' }) }
 const onUIMouseEnter = () => { setHoveringUI(true) }
 const onUIMouseLeave = () => { setHoveringUI(false) }
 const onUITouchStart = () => { setHoveringUI(true) }
@@ -489,15 +500,13 @@ onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  if (timer) clearTimeout(timer)
   if (timeInterval) clearInterval(timeInterval)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'visible' && isRunning.value) {
-    if (timer) clearInterval(timer)
-    timer = setInterval(timerTick, 1000)
-    timerTick()
+    timerUpdate()
   }
 }
 </script>
