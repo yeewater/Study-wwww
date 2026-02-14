@@ -9,6 +9,7 @@
       @touchstart="onUITouchStart"
       @touchend="onUITouchEnd"
     >
+      <span v-if="hasNewUpdate || hasNewPlaylist" class="clock-update-dot"></span>
       <div class="clock-row">
         <div class="online-indicator">
           <span class="online-dot" :class="{ connected: isConnected }"></span>
@@ -40,9 +41,9 @@
             <div class="settings-nav">
               <button class="nav-item" :class="{ active: currentTab === 'pomodoro' }" @click="currentTab = 'pomodoro'">番茄钟</button>
               <button class="nav-item" :class="{ active: currentTab === 'todos' }" @click="currentTab = 'todos'">待办列表</button>
-              <button class="nav-item" :class="{ active: currentTab === 'playlist' }" @click="currentTab = 'playlist'">歌单</button>
+              <button class="nav-item" :class="{ active: currentTab === 'playlist' }" @click="openPlaylistTab">歌单<span v-if="hasNewPlaylist" class="update-dot"></span></button>
               <button class="nav-item" :class="{ active: currentTab === 'stats' }" @click="currentTab = 'stats'">学习数据</button>
-              <button class="nav-item" :class="{ active: currentTab === 'updates' }" @click="currentTab = 'updates'">更新日志</button>
+              <button class="nav-item" :class="{ active: currentTab === 'updates' }" @click="openUpdatesTab">更新日志<span v-if="hasNewUpdate" class="update-dot"></span></button>
               <button class="nav-item" :class="{ active: currentTab === 'quickstudy' }" @click="currentTab = 'quickstudy'">一键学习</button>
               <button class="nav-item" :class="{ active: currentTab === 'about' }" @click="currentTab = 'about'">关于</button>
             </div>
@@ -245,8 +246,24 @@ import { useOnlineCount } from '../composables/useOnlineCount.js'
 import { useMusic } from '../composables/useMusic.js'
 import { duckMusicForNotification, setHoveringUI, getAPlayerInstance } from '../utils/eventBus.js'
 import { getPomodoroSettings, savePomodoroSettings, saveMusicPauseSettings } from '../utils/userSettings.js'
-import { recommendPlaylists } from '../data/playlists.js'
+import { recommendPlaylists, LATEST_PLAYLIST_VERSION } from '../data/playlists.js'
+import { LATEST_UPDATE_VERSION } from '../data/updates.js'
 import Updates from './Updates.vue'
+
+const UPDATE_READ_KEY = 'last_read_update'
+const PLAYLIST_READ_KEY = 'last_read_playlist'
+const hasNewUpdate = ref(localStorage.getItem(UPDATE_READ_KEY) !== LATEST_UPDATE_VERSION)
+const hasNewPlaylist = ref(localStorage.getItem(PLAYLIST_READ_KEY) !== LATEST_PLAYLIST_VERSION)
+const openUpdatesTab = () => {
+  currentTab.value = 'updates'
+  hasNewUpdate.value = false
+  localStorage.setItem(UPDATE_READ_KEY, LATEST_UPDATE_VERSION)
+}
+const openPlaylistTab = () => {
+  currentTab.value = 'playlist'
+  hasNewPlaylist.value = false
+  localStorage.setItem(PLAYLIST_READ_KEY, LATEST_PLAYLIST_VERSION)
+}
 
 const props = defineProps({
   showControls: {
@@ -518,6 +535,10 @@ const handleVisibilityChange = () => {
   border-radius: 10px; padding: 0.8rem 1.2rem; border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex; flex-direction: column; align-items: center; gap: 0.6rem; color: white; font-family: 'Courier New', monospace;
 }
+.clock-update-dot {
+  position: absolute; top: -3px; right: -3px; width: 10px; height: 10px;
+  background: #ff4444; border-radius: 50%; box-shadow: 0 0 8px rgba(255, 68, 68, 0.7);
+}
 .clock-row {
   display: flex; align-items: center; gap: 1rem;
 }
@@ -547,11 +568,11 @@ const handleVisibilityChange = () => {
 .status-badge.focus { color: #ff6b6b; }
 .status-badge.break { color: #4ecdc4; }
 .status-badge.long-break { color: #45b7d1; }
-.settings-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1002; }
+.settings-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1002; }
 .settings-panel { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(30px); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); width: 90%; max-width: 550px; height: 70vh; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
 
 @media (max-width: 768px) {
-  .settings-panel { width: 95%; max-width: none; height: 85vh; border-radius: 15px; }
+  .settings-panel { width: 95%; max-width: none; height: 80vh; height: 80dvh; max-height: calc(100% - 2rem); border-radius: 15px; }
 }
 .settings-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); flex-shrink: 0; }
 .settings-header h3 { color: white; margin: 0; font-size: 1.1rem; }
@@ -562,12 +583,22 @@ const handleVisibilityChange = () => {
 .nav-item { background: none; border: none; color: rgba(255, 255, 255, 0.6); padding: 0.8rem 1.2rem; text-align: left; cursor: pointer; transition: all 0.3s ease; font-size: 0.85rem; white-space: nowrap; }
 .nav-item:hover { color: white; background: rgba(255, 255, 255, 0.05); }
 .nav-item.active { color: white; background: rgba(255, 255, 255, 0.1); border-left: 2px solid #ff6b6b; }
+.nav-item { position: relative; }
+.update-dot { display: inline-block; width: 6px; height: 6px; background: #ff4444; border-radius: 50%; margin-left: 4px; vertical-align: top; }
 
-@media (max-width: 768px) {
+@media (max-width: 768px) and (orientation: portrait) {
   .settings-body { flex-direction: column; }
   .settings-nav { flex-direction: row; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 0.5rem; min-width: auto; overflow-x: auto; overflow-y: hidden; }
   .nav-item { padding: 0.6rem 1rem; font-size: 0.8rem; }
   .nav-item.active { border-left: none; border-bottom: 2px solid #ff6b6b; }
+}
+@media (max-height: 500px) {
+  .settings-panel { width: 95%; max-width: none; height: 92%; max-height: none; border-radius: 10px; }
+  .settings-header { padding: 0.6rem 1rem; }
+  .settings-header h3 { font-size: 0.95rem; }
+  .settings-nav { min-width: 80px; padding: 0.3rem 0; }
+  .nav-item { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+  .settings-content { padding: 0.6rem 1rem; }
 }
 .settings-content { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; min-height: 0; }
 
@@ -601,7 +632,7 @@ const handleVisibilityChange = () => {
 .progress-ring-fill.focus { color: #ff6b6b; }
 .progress-ring-fill.break { color: #4ecdc4; }
 .progress-ring-fill.long-break { color: #45b7d1; }
-.time-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(1.2rem, 3.5vw, 2.5rem); font-weight: 300; font-family: 'Courier New', monospace; }
+.time-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(1.2rem, 3.5vw, 1.8rem); font-weight: 300; font-family: 'Courier New', monospace; }
 .timer-controls { display: flex; gap: 0.4rem; justify-content: center; margin-bottom: 1.5rem; }
 .control-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; padding: 0.6rem 0.8rem; color: white; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; }
 .control-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }

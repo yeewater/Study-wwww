@@ -24,3 +24,5 @@ export const recommendPlaylists = [
     tags: ['适合学习', '轻音乐','平静']
   },
 ]
+
+export const LATEST_PLAYLIST_VERSION = String(recommendPlaylists.length)

@@ -11,12 +11,15 @@
         loop
         playsinline
         webkit-playsinline
+        preload="auto"
         @loadeddata="onVideoLoaded"
+        @error="onVideoError"
+        @stalled="onVideoStalled"
       ></video>
     </transition>
     <div class="overlay"></div>
     <div class="content" :class="{ hidden: !showControls }">
-      <h1 class="title">Study with Miku</h1>
+      <h1 class="title">Study With Miku</h1>
       <p class="subtitle">Love by SHSHOUSE</p>
     </div>
     <button class="switch-video-btn" @click="switchVideo" :class="{ hidden: !showControls }" @mouseenter="onUIMouseEnter" @mouseleave="onUIMouseLeave" @touchstart="onUITouchStart" @touchend="onUITouchEnd">
@@ -152,8 +155,32 @@ const aplayer = ref(null)
 const aplayerInitialized = ref(false)
 const { songs, loadSongs, loading } = useMusic()
 
+let videoStalledTimer = null
 const onVideoLoaded = () => {
-  console.log('视频加载完成')
+  if (videoStalledTimer) { clearTimeout(videoStalledTimer); videoStalledTimer = null }
+  const video = videoRef.value
+  if (video) {
+    video.play().catch(() => {})
+    videoStalledTimer = setTimeout(() => {
+      if (video && video.currentTime < 0.5) {
+        console.warn('视频播放异常，自动切换')
+        switchVideo()
+      }
+    }, 3000)
+  }
+}
+const onVideoError = () => {
+  console.error('视频加载失败，切换到下一个')
+  switchVideo()
+}
+const onVideoStalled = () => {
+  const video = videoRef.value
+  if (video && video.currentTime < 0.5) {
+    console.warn('视频卡住，尝试切换')
+    setTimeout(() => {
+      if (video && video.currentTime < 0.5) switchVideo()
+    }, 5000)
+  }
 }
 
 // 监听显示/隐藏状态变化
@@ -162,12 +189,10 @@ watch(showControls, (newValue) => {
     const playerElement = document.getElementById('aplayer')
     if (playerElement) {
       if (newValue) {
-        // 显示播放器
-        playerElement.style.opacity = '1'
+        playerElement.classList.remove('lrc-only')
         playerElement.style.pointerEvents = 'auto'
       } else {
-        // 隐藏播放器
-        playerElement.style.opacity = '0'
+        playerElement.classList.add('lrc-only')
         playerElement.style.pointerEvents = 'none'
       }
     }
@@ -518,5 +543,28 @@ onUnmounted(() => {
   filter: blur(0);
   font-size: 16px !important;
   color: #39c5bb !important;
+}
+
+#aplayer.lrc-only,
+#aplayer.lrc-only .aplayer,
+#aplayer.lrc-only .aplayer-body,
+#aplayer.lrc-only .aplayer-info {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+#aplayer.lrc-only .aplayer-pic,
+#aplayer.lrc-only .aplayer-info .aplayer-music,
+#aplayer.lrc-only .aplayer-controller,
+#aplayer.lrc-only .aplayer-list,
+#aplayer.lrc-only .aplayer-miniswitcher,
+#aplayer.lrc-only .aplayer-notice {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.3s ease;
+}
+#aplayer.lrc-only .aplayer-lrc {
+  opacity: 1 !important;
+  transition: opacity 0.3s ease;
 }
 </style>
