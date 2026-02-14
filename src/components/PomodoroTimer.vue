@@ -404,33 +404,37 @@ const strokeDashoffset = computed(() => { const totalTime = currentStatus.value 
 const toggleSettings = () => { showSettings.value = !showSettings.value }
 const closeSettings = () => { showSettings.value = false }
 
+const timerTick = () => {
+  const now = Date.now()
+  const elapsed = Math.floor((now - lastTickTime) / 1000)
+  if (elapsed < 1) return
+  lastTickTime = now
+  if (elapsed > 1) {
+    timeLeft.value = Math.max(0, timeLeft.value - elapsed + 1)
+    if (currentStatus.value === STATUS.FOCUS) {
+      studyTimeCounter += elapsed - 1
+      if (studyTimeCounter >= 60) { addStudyTime(Math.floor(studyTimeCounter / 60) * 60); studyTimeCounter = studyTimeCounter % 60 }
+    }
+  }
+  timeLeft.value--
+  if (currentStatus.value === STATUS.FOCUS) {
+    studyTimeCounter++
+    if (studyTimeCounter >= 60) { addStudyTime(60); studyTimeCounter = 0 }
+  }
+  if (timeLeft.value <= 0) {
+    if (currentStatus.value === STATUS.FOCUS && studyTimeCounter > 0) addStudyTime(studyTimeCounter)
+    clearInterval(timer)
+    timer = null
+    handleTimerComplete()
+  }
+}
 const startTimer = () => {
   if (timeLeft.value <= 0) return
   isRunning.value = true
   studyTimeCounter = 0
   lastTickTime = Date.now()
-  timer = setInterval(() => {
-    const now = Date.now()
-    const elapsed = Math.floor((now - lastTickTime) / 1000)
-    lastTickTime = now
-    if (elapsed > 1) {
-      timeLeft.value = Math.max(0, timeLeft.value - elapsed + 1)
-      if (currentStatus.value === STATUS.FOCUS) {
-        studyTimeCounter += elapsed - 1
-        if (studyTimeCounter >= 60) { addStudyTime(Math.floor(studyTimeCounter / 60) * 60); studyTimeCounter = studyTimeCounter % 60 }
-      }
-    }
-    timeLeft.value--
-    if (currentStatus.value === STATUS.FOCUS) {
-      studyTimeCounter++
-      if (studyTimeCounter >= 60) { addStudyTime(60); studyTimeCounter = 0 }
-    }
-    if (timeLeft.value <= 0) {
-      if (currentStatus.value === STATUS.FOCUS && studyTimeCounter > 0) addStudyTime(studyTimeCounter)
-      clearInterval(timer)
-      handleTimerComplete()
-    }
-  }, 1000)
+  if (timer) clearInterval(timer)
+  timer = setInterval(timerTick, 1000)
 }
 const pauseTimer = () => {
   isRunning.value = false
@@ -460,10 +464,9 @@ const handleTimerComplete = () => {
   }
   const statusTextMap = { [STATUS.FOCUS]: '专注', [STATUS.BREAK]: '休息', [STATUS.LONG_BREAK]: '长休' }
   if (Notification.permission === 'granted') new Notification('番茄钟', { body: `${statusTextMap[completedStatus]}已完成！`, icon: '/favicon.ico' })
-  isRunning.value = false
-  requestAnimationFrame(() => {
-    setTimeout(() => { startTimer() }, 1000)
-  })
+  studyTimeCounter = 0
+  lastTickTime = Date.now()
+  timer = setInterval(timerTick, 1000)
 }
 const playNotificationSound = () => {
   duckMusicForNotification(3000)
@@ -492,7 +495,9 @@ onUnmounted(() => {
 })
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'visible' && isRunning.value) {
-    lastTickTime = Date.now()
+    if (timer) clearInterval(timer)
+    timer = setInterval(timerTick, 1000)
+    timerTick()
   }
 }
 </script>

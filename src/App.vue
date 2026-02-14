@@ -328,13 +328,14 @@ onUnmounted(() => {
 }
 
 .title {
-  font-size: 3rem;
+  font-size: clamp(1.5rem, 5vw, 3rem);
   margin-bottom: 1rem;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
 }
 
 .subtitle {
-  font-size: 1.2rem;
+  font-size: clamp(0.85rem, 2vw, 1.2rem);
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
