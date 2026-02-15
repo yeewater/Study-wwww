@@ -19,7 +19,7 @@
     </transition>
     <div class="overlay"></div>
     <div class="content" :class="{ hidden: !showControls }">
-      <h1 class="title">Study With Miku</h1>
+      <h1 class="title">yeewater自习室</h1>
       <p class="subtitle">yeeeeeee~~~~~~</p>
     </div>
     <button class="switch-video-btn" @click="switchVideo" :class="{ hidden: !showControls }" @mouseenter="onUIMouseEnter" @mouseleave="onUIMouseLeave" @touchstart="onUITouchStart" @touchend="onUITouchEnd">
