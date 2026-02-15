@@ -29,7 +29,7 @@ export const recommendPlaylists = [
     desc: '我超，冰！',
     platform: 'netease',
     playlistId: '17761216212',
-    tags: ['冰！', '冰！', '冰！']
+    tags: ['适合学习', '白日梦', '冰！']
   }
 ]
 
