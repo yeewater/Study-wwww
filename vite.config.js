@@ -23,9 +23,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', '*.mp3', '*.mp4'],
       manifest: {
-        name: '自用Miku学习室',
-        short_name: 'Study with Miku',
-        description: 'Miku，爽！',
+        name: 'yeewater自习室',
+        short_name: 'yee~~',
+        description: 'yee~~',
         theme_color: '#39c5bb',
         background_color: '#ffffff',
         display: 'standalone',
