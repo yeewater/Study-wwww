@@ -38,6 +38,14 @@ export const recommendPlaylists = [
     platform: 'netease',
     playlistId: '9119562546',
     tags: ['适合学习', '轻音乐','孤独']
+  },
+  {
+    id: '6',
+    name: '超时空辉夜姬牛逼！',
+    desc: '这波贪了，应该放春晚看',
+    platform: 'netease',
+    playlistId: '17694522788',
+    tags: ['超时空', '辉夜姬','牛逼']
   }
 ]
 
