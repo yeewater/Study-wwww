@@ -389,6 +389,7 @@ const isRunning = ref(false)
 const currentStatus = ref(STATUS.FOCUS)
 const completedPomodoros = ref(0)
 const showSettings = ref(false)
+let preloadedAudio = null
 const currentTime = ref(new Date())
 const systemTime = computed(() => `${currentTime.value.getHours().toString().padStart(2, '0')}:${currentTime.value.getMinutes().toString().padStart(2, '0')}`)
 const startDate = new Date('2025-12-02T00:00:00')
@@ -452,8 +453,21 @@ const timerUpdate = () => {
     scheduleNextTick()
   }
 }
+const preloadNotificationAudio = () => {
+  try {
+    if (!preloadedAudio) {
+      preloadedAudio = new Audio('/BreakOrWork.mp3')
+      preloadedAudio.preload = 'auto'
+    }
+    preloadedAudio.volume = 0
+    preloadedAudio.currentTime = 0
+    const p = preloadedAudio.play()
+    if (p) p.then(() => { preloadedAudio.pause(); preloadedAudio.currentTime = 0; preloadedAudio.volume = 1 }).catch(() => {})
+  } catch (e) {}
+}
 const startTimer = () => {
   if (timeLeft.value <= 0) return
+  preloadNotificationAudio()
   isRunning.value = true
   studyTimeCounter = 0
   lastRecordedTimeLeft = timeLeft.value
@@ -491,7 +505,8 @@ const handleTimerComplete = () => {
     }
   }
   const statusTextMap = { [STATUS.FOCUS]: '专注', [STATUS.BREAK]: '休息', [STATUS.LONG_BREAK]: '长休' }
-  try { if (Notification.permission === 'granted') new Notification('番茄钟', { body: `${statusTextMap[completedStatus]}已完成！`, icon: '/favicon.ico' }) } catch(e) {}
+  const alertMsg = `${statusTextMap[completedStatus]}已完成！`
+  try { if ('Notification' in window && Notification.permission === 'granted') new Notification('番茄钟', { body: alertMsg, icon: '/favicon.ico' }) } catch(e) {}
   studyTimeCounter = 0
   lastRecordedTimeLeft = timeLeft.value
   phaseEndTime = Date.now() + timeLeft.value * 1000
@@ -501,8 +516,14 @@ const playNotificationSound = () => {
   duckMusicForNotification(3000)
   setTimeout(() => {
     try {
-      const audio = new Audio('/BreakOrWork.mp3')
-      audio.play().catch(() => {})
+      if (preloadedAudio) {
+        preloadedAudio.currentTime = 0
+        preloadedAudio.volume = 1
+        preloadedAudio.play().catch(() => {})
+      } else {
+        const audio = new Audio('/BreakOrWork.mp3')
+        audio.play().catch(() => {})
+      }
     } catch (e) {}
   }, 200)
 }
